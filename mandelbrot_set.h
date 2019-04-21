@@ -13,24 +13,24 @@ namespace mandelbrot {
 
 static const uint32_t DEFAULT_CALCSIZE { 100 };
 static const uint32_t BOUNDARY { 2 };
+static const uint32_t DIVERGENCE { 0 };
 
 template <typename FloatT>
-bool include_in_mandelbrot_set(FloatT const x, FloatT const y, uint32_t const calc_size = DEFAULT_CALCSIZE) {
+uint32_t include_in_mandelbrot_set(FloatT const x, FloatT const y, uint32_t const calc_size = DEFAULT_CALCSIZE) {
   std::complex const c { x, y };
   std::complex z{ static_cast<FloatT>(0.0), static_cast<FloatT>(0.0) };
   auto boundary = static_cast<FloatT>(BOUNDARY);
-  uint32_t i = calc_size;
-  while (i--) {
-    if (std::abs(z) > boundary) return false;
+  for (uint32_t i = 1; i <= calc_size; ++i) {
+    if (std::abs(z) > boundary) return i;
     z = z * z + c;
   }
-  return true;
+  return 0;
 }
 
 template <typename FloatT>
 class mandelbrot_set {
 private:
-  std::vector<bool> _data;
+  std::vector<uint8_t> _data;
   FloatT _interval;
   FloatT _startPointX;
   FloatT _startPointY;
@@ -66,7 +66,7 @@ public:
   mandelbrot_set(FloatT const s, FloatT const len, FloatT const interval) : mandelbrot_set(s, s, len, interval) {}
   mandelbrot_set(FloatT const interval) : mandelbrot_set(-1 * static_cast<FloatT>(BOUNDARY), static_cast<FloatT>(BOUNDARY * 2), interval) {}
 
-  bool const getByRelativePoint(uint32_t const x, uint32_t const y) const {
+  uint8_t const getByRelativePoint(uint32_t const x, uint32_t const y) const {
     return _data.at(y * _relativeWidth + x);
   }
 
