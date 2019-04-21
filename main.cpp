@@ -5,10 +5,10 @@
 
 int
 main () {
-  auto sx = 0.0L;
-  auto sy = 0.7L;
-  auto len = 0.4L;
-  auto interval = 0.0001L;
+  auto sx = 0.2L;
+  auto sy = 0.6L;
+  auto len = 0.05L;
+  auto interval = 0.00002L;
   hasokon::mandelbrot::mandelbrot_set set{ sx, sy, len, interval };
 
   std::cout << "P1" << std::endl;

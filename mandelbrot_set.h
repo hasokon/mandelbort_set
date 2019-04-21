@@ -50,10 +50,15 @@ public:
   _data(static_cast<size_t>(_relativeWidth * _relativeHeight))
   {
     _data.clear();
-    for (FloatT y = sy; y >= sy - h; y -= interval) {
-      for (FloatT x = sx; x <= sx + w; x += interval) {
+    FloatT x = _startPointX;
+    FloatT y = _startPointY;
+    for (uint32_t ry = 0; ry < _relativeWidth; ++ry) {
+      x = _startPointX;
+      for (uint32_t rx = 0; rx < _relativeWidth; ++rx) {
         _data.push_back(include_in_mandelbrot_set(x, y));
+        x += _interval;
       }
+      y -= _interval;
     }
   }
 
