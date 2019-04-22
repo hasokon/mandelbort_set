@@ -46,13 +46,13 @@ public:
   _width(w),
   _height(h),
   _relativeWidth(static_cast<uint32_t>(w/interval)),
-  _relativeHeight(static_cast<uint32_t>(h/interval)),
-  _data(static_cast<size_t>(_relativeWidth * _relativeHeight))
+  _relativeHeight(static_cast<uint32_t>(h/interval))
   {
+    _data = std::vector<uint8_t>(_relativeWidth * _relativeHeight);
     _data.clear();
     FloatT x = _startPointX;
     FloatT y = _startPointY;
-    for (uint32_t ry = 0; ry < _relativeWidth; ++ry) {
+    for (uint32_t ry = 0; ry < _relativeHeight; ++ry) {
       x = _startPointX;
       for (uint32_t rx = 0; rx < _relativeWidth; ++rx) {
         _data.push_back(include_in_mandelbrot_set(x, y));
