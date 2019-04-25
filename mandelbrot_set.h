@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <vector>
 #include <cstddef>
+#include <thread>
 
 namespace hasokon {
 
@@ -17,12 +18,17 @@ static const uint32_t DIVERGENCE { 0 };
 
 template <typename FloatT>
 uint32_t include_in_mandelbrot_set(FloatT const x, FloatT const y, uint32_t const calc_size = DEFAULT_CALCSIZE) {
-  std::complex const c { x, y };
-  std::complex z{ static_cast<FloatT>(0.0), static_cast<FloatT>(0.0) };
-  auto boundary = static_cast<FloatT>(BOUNDARY);
+  FloatT za = 0.0;
+  FloatT zb = 0.0;
+  FloatT ca = x;
+  FloatT cb = y;
+  FloatT t;
+  constexpr auto boundary = static_cast<FloatT>(BOUNDARY) * 2.0;
   for (uint32_t i = 1; i <= calc_size; ++i) {
-    if (std::abs(z) > boundary) return i;
-    z = z * z + c;
+    if ((za * za + zb * zb) > boundary) return i;
+    t = za * za - zb * zb + ca;
+    zb = 2 * za * zb + cb;
+    za = t;
   }
   return 0;
 }
@@ -48,6 +54,38 @@ public:
   _relativeWidth(static_cast<uint32_t>(w/interval)),
   _relativeHeight(static_cast<uint32_t>(h/interval))
   {
+    _data = std::vector<uint8_t>(_relativeWidth * _relativeHeight, 0);
+  }
+
+  mandelbrot_set(FloatT const sx, FloatT const sy, FloatT const len, FloatT const interval) : mandelbrot_set(sx, sy, len, len, interval) {}
+  mandelbrot_set(FloatT const s, FloatT const len, FloatT const interval) : mandelbrot_set(s, s, len, interval) {}
+  mandelbrot_set(FloatT const interval) : mandelbrot_set(-1 * static_cast<FloatT>(BOUNDARY), static_cast<FloatT>(BOUNDARY * 2), interval) {}
+
+  void calc(uint32_t const head, uint32_t const tail) {
+    uint32_t rx = head % _relativeWidth;
+    uint32_t ry = head / _relativeWidth;
+    uint32_t erx = tail % _relativeWidth;
+    uint32_t ery = tail / _relativeWidth;
+    FloatT x = _startPointX + rx * _interval;
+    FloatT y = _startPointY - ry * _interval;
+    uint32_t point = head;
+    for (; ry < ery; ++ry) {
+      for (; rx < _relativeWidth; ++rx) {
+        _data[point] = include_in_mandelbrot_set(x, y);
+        x += _interval;
+        ++point;
+      }
+      x = _startPointX;
+      rx = 0;
+      y -= _interval;
+    }
+    for (rx = 0; rx < erx; ++rx) {
+      _data[point] = include_in_mandelbrot_set(x, y);
+      x += _interval;
+    }
+  }
+
+  void calc_all_1_thread_simple() {
     _data = std::vector<uint8_t>(_relativeWidth * _relativeHeight);
     _data.clear();
     FloatT x = _startPointX;
@@ -62,9 +100,42 @@ public:
     }
   }
 
-  mandelbrot_set(FloatT const sx, FloatT const sy, FloatT const len, FloatT const interval) : mandelbrot_set(sx, sy, len, len, interval) {}
-  mandelbrot_set(FloatT const s, FloatT const len, FloatT const interval) : mandelbrot_set(s, s, len, interval) {}
-  mandelbrot_set(FloatT const interval) : mandelbrot_set(-1 * static_cast<FloatT>(BOUNDARY), static_cast<FloatT>(BOUNDARY * 2), interval) {}
+  void calc_all_4_thread_simple() {
+    uint32_t const thread_num = 4;
+    uint32_t size = _relativeHeight * _relativeWidth;
+    uint32_t const block_size = size / thread_num;
+    uint32_t head = 0;
+    _data = std::vector<uint8_t>(size);
+
+    std::thread th1([this, head, block_size]{calc(head, head + block_size);});
+    std::thread th2([this, head, block_size]{calc(head + block_size, head + block_size * 2);});
+    std::thread th3([this, head, block_size]{calc(head + block_size + 2, head + block_size * 3);});
+
+    calc(head + block_size * 3, size);
+
+    th1.join();
+    th2.join();
+    th3.join();
+  }
+
+  void calc_all_multi_thread_simple() {
+    uint32_t const cpu_thread_num = std::thread::hardware_concurrency();
+    uint32_t size = _relativeHeight * _relativeWidth;
+    uint32_t const block_size = size / cpu_thread_num;
+    uint32_t head = 0;
+    _data = std::vector<uint8_t>(size);
+    std::vector<std::thread> threads(cpu_thread_num-1);
+
+    for (; head < size - block_size; size += block_size) {
+      threads.emplace_back([this, head, block_size]{calc(head, head + block_size);});
+    }
+
+    calc(head, size);
+
+    for (auto& th : threads) {
+      th.join();
+    }
+  }
 
   uint8_t const getByRelativePoint(uint32_t const x, uint32_t const y) const {
     return _data.at(y * _relativeWidth + x);
