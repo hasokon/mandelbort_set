@@ -23,7 +23,7 @@ uint32_t include_in_mandelbrot_set(FloatT const x, FloatT const y, uint32_t cons
   FloatT ca = x;
   FloatT cb = y;
   FloatT t;
-  constexpr auto boundary = static_cast<FloatT>(BOUNDARY) * 2.0;
+  constexpr auto boundary = static_cast<FloatT>(BOUNDARY) * static_cast<FloatT>(BOUNDARY);
   for (uint32_t i = 1; i <= calc_size; ++i) {
     if ((za * za + zb * zb) > boundary) return i;
     t = za * za - zb * zb + ca;
@@ -98,6 +98,20 @@ public:
       }
       y -= _interval;
     }
+ }
+ 
+  void calc_all_2_thread_simple() {
+    uint32_t const thread_num = 2;
+    uint32_t size = _relativeHeight * _relativeWidth;
+    uint32_t const block_size = size / thread_num;
+    uint32_t head = 0;
+    _data = std::vector<uint8_t>(size);
+
+    std::thread th1([this, head, block_size]{calc(head, head + block_size);});
+
+    calc(head + block_size, size);
+
+    th1.join();
   }
 
   void calc_all_4_thread_simple() {
@@ -126,14 +140,16 @@ public:
     _data = std::vector<uint8_t>(size);
     std::vector<std::thread> threads(cpu_thread_num-1);
 
-    for (; head < size - block_size; size += block_size) {
+    for (; head < size - block_size; head += block_size) {
       threads.emplace_back([this, head, block_size]{calc(head, head + block_size);});
     }
 
     calc(head, size);
 
     for (auto& th : threads) {
-      th.join();
+      if (th.joinable()) {
+        th.join();
+      }
     }
   }
 

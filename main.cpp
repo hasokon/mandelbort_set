@@ -38,15 +38,16 @@ main () {
   auto sy = 1.0L;
   auto w = 1.0L;
   auto h = 1.0L;
-  auto interval = 0.0005L;
+  auto interval = 0.0002L;
 //  auto sx = -0.27L;
 //  auto sy = 1.1L;
 //  auto w = 0.27L;
 //  auto h = 0.5L;
 //  auto interval = 0.00005L;
   mandelbrot_set<long double> set{ sx, sy, w, h, interval };
-  //set.calc_all_multi_thread_simple();
+  set.calc_all_multi_thread_simple();
   //set.calc_all_1_thread_simple();
-  set.calc_all_4_thread_simple();
+  //set.calc_all_4_thread_simple();
+  //set.calc_all_2_thread_simple();
   //print_mandelbrot_set(set);
 }
