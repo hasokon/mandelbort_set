@@ -1,8 +1,6 @@
 #ifndef _MANDELBROT_SET_H_
 #define _MANDELBROT_SET_H_
 
-#include <string>
-#include <complex>
 #include <cstdint>
 #include <vector>
 #include <cstddef>
@@ -153,7 +151,7 @@ public:
     }
   }
 
-  uint8_t const getByRelativePoint(uint32_t const x, uint32_t const y) const {
+  uint8_t getByRelativePoint(uint32_t const x, uint32_t const y) const {
     return _data.at(y * _relativeWidth + x);
   }
 
