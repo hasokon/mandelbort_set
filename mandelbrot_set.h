@@ -5,6 +5,8 @@
 #include <vector>
 #include <cstddef>
 #include <thread>
+#include <mutex>
+//#include <iostream>
 
 namespace hasokon {
 
@@ -13,6 +15,7 @@ namespace mandelbrot {
 static const uint32_t DEFAULT_CALCSIZE { 100 };
 static const uint32_t BOUNDARY { 2 };
 static const uint32_t DIVERGENCE { 0 };
+static const uint32_t DEFAULT_BLOCK_SIZE { 10000 };
 
 template <typename FloatT>
 uint32_t include_in_mandelbrot_set(FloatT const x, FloatT const y, uint32_t const calc_size = DEFAULT_CALCSIZE) {
@@ -42,17 +45,24 @@ private:
   FloatT _height;
   uint32_t _relativeWidth;
   uint32_t _relativeHeight;
+  uint32_t _block_size;
+  uint32_t _all_size;
+  int32_t _current_point;
+  std::mutex _mtx;
 public:
-  mandelbrot_set (FloatT const sx, FloatT const sy, FloatT w, FloatT h, FloatT const interval) :
+  mandelbrot_set (FloatT const sx, FloatT const sy, FloatT w, FloatT h, FloatT const interval, uint32_t const bs = DEFAULT_BLOCK_SIZE) :
   _interval(interval),
   _startPointX(sx),
   _startPointY(sy),
   _width(w),
   _height(h),
   _relativeWidth(static_cast<uint32_t>(w/interval)),
-  _relativeHeight(static_cast<uint32_t>(h/interval))
+  _relativeHeight(static_cast<uint32_t>(h/interval)),
+  _block_size(bs)
   {
-    _data = std::vector<uint8_t>(_relativeWidth * _relativeHeight, 0);
+    _all_size = _relativeWidth * _relativeHeight;
+    _current_point = 0;
+    _data = std::vector<uint8_t>(_all_size, 0);
   }
 
   mandelbrot_set(FloatT const sx, FloatT const sy, FloatT const len, FloatT const interval) : mandelbrot_set(sx, sy, len, len, interval) {}
@@ -80,6 +90,29 @@ public:
     for (rx = 0; rx < erx; ++rx) {
       _data[point] = include_in_mandelbrot_set(x, y);
       x += _interval;
+    }
+  }
+
+  void doWork() {
+    while (true) {
+      // Lock
+      _mtx.lock();
+      int32_t head = _current_point;
+      int32_t next_point = _current_point + _block_size;
+      if (head >= 0) {
+        _current_point = next_point;
+        if (_current_point > _all_size) {
+          next_point = _all_size;
+          _current_point = -1;
+        }
+      }
+      // UnLock
+      _mtx.unlock();
+
+      if (head < 0) {
+        break;
+      }
+      calc(head, next_point);
     }
   }
 
@@ -143,6 +176,25 @@ public:
     }
 
     calc(head, size);
+
+    for (auto& th : threads) {
+      if (th.joinable()) {
+        th.join();
+      }
+    }
+  }
+
+  void calc_all_multi_worker_thread() {
+    uint32_t const cpu_thread_num = std::thread::hardware_concurrency();
+    _current_point = 0;
+    _data = std::vector<uint8_t>(_all_size);
+    std::vector<std::thread> threads(cpu_thread_num-1);
+
+    for (auto i = 0; i < cpu_thread_num - 1; ++i) {
+      threads.emplace_back([this]{doWork();});
+    }
+
+    doWork();
 
     for (auto& th : threads) {
       if (th.joinable()) {
